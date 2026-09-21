@@ -1,10 +1,8 @@
 
-![Setting](https://i.imgur.com/d9ZuUzr.png) 
+![Setting](https://i.imgur.com/ufVz6Vh.png) 
 
 
 # GuildWelcomeBot
-
-[简体中文](#简体中文) | [English](#english)
 
 ---
 
