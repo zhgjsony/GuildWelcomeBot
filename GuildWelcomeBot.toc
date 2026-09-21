@@ -2,7 +2,7 @@
 ## Title: GuildWelcomeBot
 ## Notes: A lightweight guild welcoming addon for WoW Retail, allowing users to visually customize welcome messages and chat delays within the settings menu.
 ## Notes-zhCN: 一款专为魔兽正式服设计的轻量级公会迎新插件，支持在选项菜单中可视化自定义欢迎文本与发话延迟。
-## Version: 1.3.8
+## Version: 1.3.9
 ## SavedVariables: GuildWelcomeBotDB
 ## Category: Chat
 ## Category-zhCN: 聊天

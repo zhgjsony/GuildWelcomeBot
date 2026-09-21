@@ -2,7 +2,8 @@
 local defaultSettings = {
     enabled = true,
     message = "热烈欢迎 [{name}] ！！",
-    delay = 3
+    delay = 3,
+    enableRightClickInvite = true -- 默认开启右键邀请功能开关
 }
 
 local frame = CreateFrame("Frame")
@@ -41,6 +42,8 @@ frame:SetScript("OnEvent", function(self, event, ...)
             end
             -- 注册原生系统菜单面板
             frame:CreateOptionsPanel()
+            -- 初始化右键菜单修改
+            frame:InitRightClickMenu()
         end
     elseif event == "CHAT_MSG_SYSTEM" and GuildWelcomeBotDB and GuildWelcomeBotDB.enabled then
         local text = ...
@@ -63,6 +66,41 @@ frame:SetScript("OnEvent", function(self, event, ...)
         end
     end
 end)
+
+-- =================== 12.1 Menu API 右键菜单管理 ===================
+function frame:InitRightClickMenu()
+    if not Menu or not Menu.ModifyMenu then return end
+
+    -- 定义菜单渲染的通用回调函数
+    local function AppendInviteButton(ownerRegion, rootDescription, contextData)
+        -- 如果玩家在设置里关闭了此功能，则不往菜单里注入按钮
+        if not GuildWelcomeBotDB or not GuildWelcomeBotDB.enableRightClickInvite then
+            return 
+        end
+
+        -- 安全获取右键目标的玩家名字
+        local name = contextData and contextData.name
+        if not name or name == "" then return end
+
+        -- 在菜单中插入一条分割线
+        rootDescription:CreateDivider()
+        
+        -- 创建“邀请入会”按钮（已移除有风险的 SetIcon 接口，确保不再报错）
+        rootDescription:CreateButton("邀请入会", function()
+            if IsInGuild() then
+                GuildInvite(name)
+                DEFAULT_CHAT_FRAME:AddMessage("|cFF00FF00[GuildWelcomeBot]|r 正在邀请 " .. name .. " 加入公会...")
+            else
+                UIErrorsFrame:AddMessage("你当前不在公会中，无法邀请其他人。", 1.0, 0.1, 0.1, 1.0)
+            end
+        end)
+    end
+
+    -- 同时挂钩正式服右键菜单的三个关键标签
+    Menu.ModifyMenu("MENU_UNIT_PLAYER", AppendInviteButton)        -- 标准玩家目标菜单
+    Menu.ModifyMenu("MENU_UNIT_CHAT_PLAYER", AppendInviteButton)   -- 聊天栏专属玩家菜单
+    Menu.ModifyMenu("MENU_UNIT_FRIEND", AppendInviteButton)        -- 好友列表玩家菜单
+end
 
 -- 创建原生系统菜单嵌合面板
 function frame:CreateOptionsPanel()
@@ -87,10 +125,18 @@ function frame:CreateOptionsPanel()
         GuildWelcomeBotDB.enabled = self:GetChecked()
     end)
 
+    -- =================== 复选框：开启/关闭右键邀请 ===================
+    local cbInvite = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
+    cbInvite:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 0, -10)
+    cbInvite.Text:SetText(" 开启聊天栏右击“邀请入会”功能")
+    cbInvite:SetScript("OnClick", function(self)
+        GuildWelcomeBotDB.enableRightClickInvite = self:GetChecked()
+    end)
+
     -- =================== 第一组：延迟项 ===================
     -- 4. 文本框标签：延迟秒数
     local delayLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    delayLabel:SetPoint("TOPLEFT", cb, "BOTTOMLEFT", 0, -25)
+    delayLabel:SetPoint("TOPLEFT", cbInvite, "BOTTOMLEFT", 0, -25)
     delayLabel:SetText("发话延迟时间（秒）:")
 
     -- 5. 文本框：延迟秒数输入
@@ -166,6 +212,7 @@ function frame:CreateOptionsPanel()
     -- 打开面板时微延迟注入默认值
     panel:SetScript("OnShow", function()
         cb:SetChecked(GuildWelcomeBotDB.enabled)
+        cbInvite:SetChecked(GuildWelcomeBotDB.enableRightClickInvite) -- 同步右键开关勾选状态
         tempDelay = GuildWelcomeBotDB.delay
         tempMessage = GuildWelcomeBotDB.message
         
@@ -175,7 +222,7 @@ function frame:CreateOptionsPanel()
         end)
     end)
 
-    -- 【核心修复】正确挂载进新版系统菜单并保存生成的 Category 对象
+    -- 正确挂载进新版系统菜单并保存生成的 Category 对象
     if Settings and Settings.RegisterCanvasLayoutCategory then
         local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
         Settings.RegisterAddOnCategory(category)
@@ -186,12 +233,10 @@ end
 -- 保留快捷命令通道
 SLASH_GUILDWELCOMEBOT1 = "/gwb"
 SlashCmdList["GUILDWELCOMEBOT"] = function()
-    -- 【核心修复】使用暴雪推荐的最新 API 传递 Category 对象或利用新参数打开
+    -- 使用暴雪推荐的最新 API 传递 Category 对象或利用新参数打开
     if Settings and Settings.OpenToCategory and addonSettingsCategory then
-        -- 针对 11.0+ 的安全调用，传入系统生成的 category 对象而非字符串名字
         Settings.OpenToCategory(addonSettingsCategory:GetID())
     else
-        -- 备用老版本兼容
         ToggleInterfaceOptions()
     end
 end
