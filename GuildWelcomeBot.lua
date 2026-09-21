@@ -14,13 +14,14 @@ local joinPattern
 local rawPattern = _G["ERR_GUILD_JOIN_S"] or (GetText and GetText("ERR_GUILD_JOIN_S")) or "%s加入了公会。"
 joinPattern = rawPattern:gsub("%%s", "(.+)")
 
--- 【新增安全辅助函数】防止在面对受保护的 secret string 时导致整段逻辑崩溃
+-- 存储新版设置面板生成的分类对象
+local addonSettingsCategory = nil
+
+-- 安全匹配辅助函数
 local function SafeMatch(text, pattern)
     if not text or type(text) ~= "string" then return nil end
-    -- 如果该字符串变量是由系统加密受污染的，直接跳过处理
     if issecurevariable and issecurevariable("text") then return nil end
     
-    -- 使用 pcall 模式进行保护性匹配
     local success, result = pcall(string.match, text, pattern)
     if success then
         return result
@@ -43,15 +44,12 @@ frame:SetScript("OnEvent", function(self, event, ...)
         end
     elseif event == "CHAT_MSG_SYSTEM" and GuildWelcomeBotDB and GuildWelcomeBotDB.enabled then
         local text = ...
-        
-        -- 【核心修复】调用安全匹配逻辑，如果返回 nil 则自动放弃后续解析（打BOSS时安全过滤）
         local name = SafeMatch(text, joinPattern)
         
         if name then
             local shortName = SafeMatch(name, "([^%-]+)") or name
             C_Timer.After(GuildWelcomeBotDB.delay, function()
                 if IsInGuild() then
-                    -- 再次使用更安全的全局替换
                     local success, welcomeMsg = pcall(string.gsub, GuildWelcomeBotDB.message, "{name}", shortName)
                     if success and welcomeMsg then
                         if C_ChatInfo and C_ChatInfo.SendChatMessage then
@@ -177,19 +175,23 @@ function frame:CreateOptionsPanel()
         end)
     end)
 
-    -- 挂载进系统菜单
+    -- 【核心修复】正确挂载进新版系统菜单并保存生成的 Category 对象
     if Settings and Settings.RegisterCanvasLayoutCategory then
         local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
         Settings.RegisterAddOnCategory(category)
+        addonSettingsCategory = category -- 记录该对象用于快捷命令打开
     end
 end
 
 -- 保留快捷命令通道
 SLASH_GUILDWELCOMEBOT1 = "/gwb"
 SlashCmdList["GUILDWELCOMEBOT"] = function()
-    if Settings and Settings.OpenToCategory then
-        Settings.OpenToCategory("GuildWelcomeBot")
+    -- 【核心修复】使用暴雪推荐的最新 API 传递 Category 对象或利用新参数打开
+    if Settings and Settings.OpenToCategory and addonSettingsCategory then
+        -- 针对 11.0+ 的安全调用，传入系统生成的 category 对象而非字符串名字
+        Settings.OpenToCategory(addonSettingsCategory:GetID())
     else
+        -- 备用老版本兼容
         ToggleInterfaceOptions()
     end
 end
