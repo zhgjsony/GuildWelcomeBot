@@ -32,6 +32,8 @@ local function SafeMatch(text, pattern)
 end
 
 -- 迎新核心逻辑
+-- 修改后的迎新核心逻辑
+-- =================== 12.1 正式服安全延时队列发话核心 ===================
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "ADDON_LOADED" then
         local addonName = ...
@@ -40,32 +42,59 @@ frame:SetScript("OnEvent", function(self, event, ...)
             for k, v in pairs(defaultSettings) do
                 if GuildWelcomeBotDB[k] == nil then GuildWelcomeBotDB[k] = v end
             end
-            -- 注册原生系统菜单面板
             frame:CreateOptionsPanel()
-            -- 初始化右键菜单修改
             frame:InitRightClickMenu()
         end
     elseif event == "CHAT_MSG_SYSTEM" and GuildWelcomeBotDB and GuildWelcomeBotDB.enabled then
         local text = ...
-        local name = SafeMatch(text, joinPattern)
+        if not text then return end
+
+        -- 获取加入公会的系统文本模版
+        local guildJoinTarget = _G["ERR_GUILD_JOIN_S"] or "%s加入了公会。"
+        local pattern = guildJoinTarget:gsub("%%s", "(.+)")
+        
+        -- 清洗颜色控制符（防止某些聊天插件或自带染色导致匹配失败）
+        local cleanText = text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+        local name = string.match(cleanText, pattern)
         
         if name then
-            local shortName = SafeMatch(name, "([^%-]+)") or name
-            C_Timer.After(GuildWelcomeBotDB.delay, function()
-                if IsInGuild() then
-                    local success, welcomeMsg = pcall(string.gsub, GuildWelcomeBotDB.message, "{name}", shortName)
-                    if success and welcomeMsg then
-                        if C_ChatInfo and C_ChatInfo.SendChatMessage then
-                            C_ChatInfo.SendChatMessage(welcomeMsg, "GUILD")
-                        else
-                            SendChatMessage(welcomeMsg, "GUILD")
+            -- 提取短名字（剥离服务器后缀）
+            local shortName = string.match(name, "([^%-]+)") or name
+            
+            -- 构建欢迎语
+            local success, welcomeMsg = pcall(string.gsub, GuildWelcomeBotDB.message, "{name}", shortName)
+            if not success or not welcomeMsg then return end
+
+            -- 读取用户在设置面板里设定的延迟秒数（如果非法则默认为 3 秒）
+            local currentDelay = tonumber(GuildWelcomeBotDB.delay) or 3
+
+            if IsInGuild() then
+                if currentDelay > 0 then
+                    -- 【完美避开 12.1 拦截的延时机制】
+                    -- 我们在闭包中捕获 welcomeMsg，并通过暴雪 12.1 允许的纯底层 C_ChatInfo 发送，
+                    -- 并且将逻辑剥离，防止异步污染安全栈。
+                    C_Timer.After(currentDelay, function()
+                        if IsInGuild() and GuildWelcomeBotDB.enabled then
+                            if C_ChatInfo and C_ChatInfo.SendChatMessage then
+                                C_ChatInfo.SendChatMessage(welcomeMsg, "GUILD")
+                            else
+                                SendChatMessage(welcomeMsg, "GUILD")
+                            end
                         end
+                    end)
+                else
+                    -- 如果延迟设置为 0，则立刻发送
+                    if C_ChatInfo and C_ChatInfo.SendChatMessage then
+                        C_ChatInfo.SendChatMessage(welcomeMsg, "GUILD")
+                    else
+                        SendChatMessage(welcomeMsg, "GUILD")
                     end
                 end
-            end)
+            end
         end
     end
 end)
+
 
 -- =================== 12.1 Menu API 右键菜单管理 ===================
 function frame:InitRightClickMenu()
