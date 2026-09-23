@@ -2,6 +2,7 @@
 ![Setting](https://i.imgur.com/ufVz6Vh.png) 
 
 
+
 # GuildWelcomeBot
 
 ---
@@ -15,6 +16,8 @@
 * **右键邀请**：右击聊天栏或好友列表的玩家名字，直接弹出“邀请入会”选项。采用正式服最新 Menu API，安全不报错。
 * **设置面板**：输入 `/gwb` 呼出内置插件设置页，可独立开启/关闭上述功能。
 
+下载地址 [CurseForge](https://www.curseforge.com/wow/addons/guildwelcomebot)
+
 ---
 
 ## English
@@ -25,3 +28,5 @@
 * **Auto Greeting**: Welcomes new members automatically. Supports custom delay timers and the `{name}` placeholder (strips realm suffixes).
 * **Right-Click Invite**: Adds an "Invite to Guild" option when right-clicking players in the chat frame or Friends List. Fully compatible with the latest Menu API (Taint-free).
 * **Options Panel**: Type `/gwb` to open the native settings panel to toggle features independently.
+
+Download form [CurseForge](https://www.curseforge.com/wow/addons/guildwelcomebot).
