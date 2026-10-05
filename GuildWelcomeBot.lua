@@ -80,6 +80,15 @@ function frame:InitRightClickMenu()
         local name = contextData and contextData.name
         if not name or name == "" then return end
 
+        -- 【修复核心】：检查名字是否包含服务器连字符，若无且存在跨服服务器数据，则自动拼接完整全名
+        if not string.find(name, "-") and contextData.server and contextData.server ~= "" then
+            -- 排除本服重名干扰
+            local myServer = GetNormalizedRealmName()
+            if contextData.server ~= myServer then
+                name = name .. "-" .. contextData.server
+            end
+        end
+
         rootDescription:CreateDivider()
         
         -- 【12.1 规范重构】：使用规范的菜单回调，并进行安全隔离，防止全队头像右键在战斗中瘫痪
